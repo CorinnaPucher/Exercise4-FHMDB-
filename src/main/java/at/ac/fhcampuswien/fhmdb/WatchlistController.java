@@ -4,6 +4,7 @@ import at.ac.fhcampuswien.fhmdb.database.*;
 import at.ac.fhcampuswien.fhmdb.exceptions.DatabaseException;
 import at.ac.fhcampuswien.fhmdb.models.Genre;
 import at.ac.fhcampuswien.fhmdb.models.Movie;
+import at.ac.fhcampuswien.fhmdb.observer.Observer;
 import at.ac.fhcampuswien.fhmdb.ui.MovieCell;
 import at.ac.fhcampuswien.fhmdb.ui.WatchListCell;
 import com.jfoenix.controls.JFXButton;
@@ -30,7 +31,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class WatchlistController implements Initializable {
+public class WatchlistController implements Initializable, Observer {
     @FXML
     public JFXListView movieListView;
     private WatchlistRepository watchlistRepository;
@@ -52,9 +53,10 @@ public class WatchlistController implements Initializable {
     public void initialize(URL url, ResourceBundle resourceBundle) {
         // Adds all WatchListEntities to observableMovies
         try {
-            watchlistRepository = new WatchlistRepository();
+            WatchlistRepository.getWatchlistRepository().attachObserver(this);
+            watchlistRepository = WatchlistRepository.getWatchlistRepository();
             List<WatchlistEntity> watchlistEntities = watchlistRepository.getWatchlist();
-            MovieRepository movieRepository = new MovieRepository();
+            MovieRepository movieRepository = MovieRepository.getMovieRepository();
 
             for (WatchlistEntity entity: watchlistEntities) {
                 MovieEntity foundMovie = movieRepository.getMovie(entity.apiId);
@@ -72,11 +74,15 @@ public class WatchlistController implements Initializable {
         homeButton.setOnAction(actionEvent -> {
             try {
                 FXMLLoader fxmlLoader = new FXMLLoader(FhmdbApplication.class.getResource("home-view.fxml"));
+                fxmlLoader.setControllerFactory(new HomeControllerFactory());
                 Scene scene = new Scene(fxmlLoader.load(), 890, 620);
                 Stage root = (Stage) homeButton.getScene().getWindow();
+                WatchlistRepository.getWatchlistRepository().detachObserver(this);
                 root.setScene(scene);
             } catch (IOException e) {
                 messageForUser(Alert.AlertType.ERROR, "Alles kaputt");
+            } catch (DatabaseException e) {
+                messageForUser(Alert.AlertType.INFORMATION, e.getMessage());
             }
         });
     }
@@ -84,7 +90,7 @@ public class WatchlistController implements Initializable {
     private void initializeCellFactory() {
         ClickEventHandler <WatchListCell> removeFromWatchlistClicked = (watchListCell) -> {
             try {
-                WatchlistRepository watchlistRepository = new WatchlistRepository();
+                WatchlistRepository watchlistRepository = WatchlistRepository.getWatchlistRepository();
                 watchlistRepository.removeFromWatchlist(watchListCell.getItem().id);
                 watchListCell.setText(null);
                 watchListCell.setGraphic(null);
@@ -93,5 +99,10 @@ public class WatchlistController implements Initializable {
             }
         };
         movieListView.setCellFactory(movieListView -> new WatchListCell(removeFromWatchlistClicked)); // use custom cell factory to display data
+    }
+
+    @Override
+    public void update(String message) {
+        messageForUser(Alert.AlertType.INFORMATION, message);
     }
 }

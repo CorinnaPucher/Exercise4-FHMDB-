@@ -103,7 +103,7 @@ public class Movie implements Comparable<Movie> {
 
     public static List<Movie> initializeMovieDatabase() throws DatabaseException {
         List<Movie> movies = null;
-        MovieRepository movieRepository = new MovieRepository();
+        MovieRepository movieRepository = MovieRepository.getMovieRepository();
         movies = MovieEntity.toMovies(movieRepository.getAllMovies());
         return movies;
     }

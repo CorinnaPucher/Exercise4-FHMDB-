@@ -1,5 +1,6 @@
 package at.ac.fhcampuswien.fhmdb.database;
 
+import at.ac.fhcampuswien.fhmdb.MovieAPIRequestBuilder;
 import at.ac.fhcampuswien.fhmdb.exceptions.DatabaseException;
 import at.ac.fhcampuswien.fhmdb.models.Movie;
 import com.j256.ormlite.dao.Dao;
@@ -9,9 +10,17 @@ import java.util.List;
 
 public class MovieRepository {
     Dao<MovieEntity, Long> dao;
+    private static MovieRepository movieInstance;
 
-    public MovieRepository() throws DatabaseException {
+    private MovieRepository() throws DatabaseException {
         this.dao = DatabaseManager.getDatabase().getMovieDao();
+    }
+
+    public static MovieRepository getMovieRepository() throws DatabaseException {
+        if(movieInstance == null) {
+            movieInstance = new MovieRepository();
+        }
+        return movieInstance;
     }
 
     /**

@@ -42,25 +42,17 @@ public class MovieAPI {
      * @return JSON String
      */
     public static String sendRequest(String query, String genre, int releaseYear, double ratingFrom) throws MovieApiException {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("https://prog2.fh-campuswien.ac.at/movies?");
-        if (!query.equals("")) {
-            stringBuilder.append("query=" + query + "&");
-        }
-        if (!genre.equals("")) {
-            stringBuilder.append("genre=" + genre + "&");
-        }
-        if (releaseYear != -1) {
-            stringBuilder.append("releaseYear=" + releaseYear + "&");
-        }
-        if (ratingFrom != -1) {
-            stringBuilder.append("ratingFrom=" + ratingFrom);
-        }
+        String url = new MovieAPIRequestBuilder("https://prog2.fh-campuswien.ac.at/movies?")
+                .query(query)
+                .genre(genre)
+                .releaseYear(releaseYear)
+                .ratingFrom(ratingFrom)
+                .build();
 
         OkHttpClient client = new OkHttpClient();
 
         Request request = new Request.Builder()
-                .url(stringBuilder.toString())
+                .url(url)
                 .addHeader("User-Agent", "http.agent")
                 .build();
 

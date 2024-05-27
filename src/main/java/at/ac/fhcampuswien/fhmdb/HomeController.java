@@ -8,6 +8,8 @@ import at.ac.fhcampuswien.fhmdb.exceptions.DatabaseException;
 import at.ac.fhcampuswien.fhmdb.exceptions.MovieApiException;
 import at.ac.fhcampuswien.fhmdb.models.Genre;
 import at.ac.fhcampuswien.fhmdb.models.Movie;
+import at.ac.fhcampuswien.fhmdb.observer.Observer;
+import at.ac.fhcampuswien.fhmdb.states.*;
 import at.ac.fhcampuswien.fhmdb.ui.MovieCell;
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXComboBox;
@@ -33,7 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class HomeController implements Initializable {
+public class HomeController implements Initializable, Observer {
     @FXML
     public JFXButton searchBtn;
 
@@ -53,6 +55,7 @@ public class HomeController implements Initializable {
     public JFXButton sortBtn;
 
     public List<Movie> allMovies;
+    private SortContext sortManager = new SortContext(new UnsortedState());
 
     private final ObservableList<Movie> observableMovies = FXCollections.observableArrayList();   // automatically updates corresponding UI elements when underlying data changes
     @FXML
@@ -61,13 +64,13 @@ public class HomeController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         try {
+            WatchlistRepository.getWatchlistRepository().attachObserver(this);
             allMovies = Movie.initializeMovies();
-            MovieRepository movieRepository = new MovieRepository();
+            MovieRepository movieRepository = MovieRepository.getMovieRepository();
             movieRepository.addAllMovies(allMovies);
         } catch (DatabaseException e) {
             messageForUser(Alert.AlertType.WARNING, e.getMessage());
-        }
-        catch (MovieApiException e) {
+        } catch (MovieApiException e) {
             // In case of MovieApi failure load from Database
             try {
                 allMovies = Movie.initializeMovieDatabase();
@@ -90,6 +93,7 @@ public class HomeController implements Initializable {
         addNumericValidation(ratingSearchField);
         addNumericValidation(yearSearchField);
     }
+
     // Notifies User if something happened per Alert
     private void messageForUser(Alert.AlertType alertType, String message) {
         Alert alert = new Alert(alertType, message);
@@ -97,11 +101,12 @@ public class HomeController implements Initializable {
                 .filter(response -> response == ButtonType.OK)
                 .ifPresent(response -> System.out.println());
     }
+
     // Intitializes all Cells
     private void initializeCellFactory() {
-        ClickEventHandler <Movie> addToWatchlistClicked = (movie) -> {
+        ClickEventHandler<Movie> addToWatchlistClicked = (movie) -> {
             try {
-                WatchlistRepository watchlistRepository = new WatchlistRepository();
+                WatchlistRepository watchlistRepository = WatchlistRepository.getWatchlistRepository();
                 watchlistRepository.addToWatchlist(new WatchlistEntity(movie.id));
             } catch (DatabaseException e) {
                 messageForUser(Alert.AlertType.INFORMATION, "This movie is already in your watchlist!");
@@ -109,17 +114,20 @@ public class HomeController implements Initializable {
         };
         movieListView.setCellFactory(movieListView -> new MovieCell(addToWatchlistClicked)); // use custom cell factory to display data
     }
+
     // Initializes the Buttons
     private void initializeButtons() {
         // Sort button:
         sortBtn.setOnAction(actionEvent -> {
             if (sortBtn.getText().equals("Sort (asc)")) {
                 // sort observableMovies ascending
-                Collections.sort(observableMovies);
+                sortManager.changeState(new AscSortedState());
+                sortManager.sort(observableMovies);
                 sortBtn.setText("Sort (desc)");
             } else {
                 // sort observableMovies descending
-                Collections.reverse(observableMovies);
+                sortManager.changeState(new DescSortedState());
+                sortManager.sort(observableMovies);
                 sortBtn.setText("Sort (asc)");
             }
         });
@@ -136,14 +144,19 @@ public class HomeController implements Initializable {
         watchButton.setOnAction(actionEvent -> {
             try {
                 FXMLLoader fxmlLoader = new FXMLLoader(FhmdbApplication.class.getResource("watchlist.fxml"));
+                fxmlLoader.setControllerFactory(new WatchListControllerFactory());
                 Scene scene = new Scene(fxmlLoader.load(), 890, 620);
                 Stage root = (Stage) watchButton.getScene().getWindow();
+                WatchlistRepository.getWatchlistRepository().detachObserver(this);
                 root.setScene(scene);
             } catch (IOException e) {
                 messageForUser(Alert.AlertType.ERROR, "Could not switch to watchlist scene");
+            } catch (DatabaseException e) {
+                messageForUser(Alert.AlertType.INFORMATION, e.getMessage());
             }
         });
     }
+
     // Adds NumericValidation to certain Fields
     private void addNumericValidation(TextField textField) {
         textField.textProperty().addListener((observable, oldValue, newValue) -> {
@@ -175,6 +188,7 @@ public class HomeController implements Initializable {
             messageForUser(Alert.AlertType.INFORMATION, "Fetching from database");
         }
         observableMovies.addAll(filteredMovies);
+        sortManager.sort(observableMovies);
     }
 
     /**
@@ -243,5 +257,10 @@ public class HomeController implements Initializable {
 
     public ObservableList<Movie> getObservableMovies() {
         return observableMovies;
+    }
+
+    @Override
+    public void update(String message) {
+        messageForUser(Alert.AlertType.INFORMATION, message);
     }
 }
