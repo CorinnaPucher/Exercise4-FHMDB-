@@ -55,7 +55,7 @@ public class HomeController implements Initializable, Observer {
     public JFXButton sortBtn;
 
     public List<Movie> allMovies;
-    private SortContext sortManager = new SortContext(new UnsortedState());
+    private SortContext sortManager = new SortContext();
 
     private final ObservableList<Movie> observableMovies = FXCollections.observableArrayList();   // automatically updates corresponding UI elements when underlying data changes
     @FXML
@@ -121,12 +121,12 @@ public class HomeController implements Initializable, Observer {
         sortBtn.setOnAction(actionEvent -> {
             if (sortBtn.getText().equals("Sort (asc)")) {
                 // sort observableMovies ascending
-                sortManager.changeState(new AscSortedState());
+                sortManager.ascButtonClicked();
                 sortManager.sort(observableMovies);
                 sortBtn.setText("Sort (desc)");
             } else {
                 // sort observableMovies descending
-                sortManager.changeState(new DescSortedState());
+                sortManager.descButtonClicked();
                 sortManager.sort(observableMovies);
                 sortBtn.setText("Sort (asc)");
             }
